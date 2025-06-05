@@ -1,0 +1,344 @@
+Index: object_renderer.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/object_renderer.py b/object_renderer.py
+--- a/object_renderer.py	(revision 91d8843dc6a70f13d7213a58c03ed5a504172e5c)
++++ b/object_renderer.py	(date 1749160916143)
+@@ -1,0 +1,23 @@
++import pygame as pg
++from settings import *
++
++
++class ObjectRenderer:
++    def __init__(self, game):
++        self.game = game
++        self.screen = game.screen
++        self.wall_textures = self.load_wall_textures()
++
++    @staticmethod
++    def get_texture(path, res=(TEXTURE_SIZE, TEXTURE_SIZE)):
++        texture = pg.image.load(path).convert_alpha()
++        return pg.transform.scale(texture, res)
++
++    def load_wall_textures(self):
++        return {
++            1: self.get_texture('resources/textures/1.png'),
++            2: self.get_texture('resources/textures/2.png'),
++            3: self.get_texture('resources/textures/3.png'),
++            4: self.get_texture('resources/textures/4.png'),
++            5: self.get_texture('resources/textures/5.png')
++        }
+\ No newline at end of file
+Index: main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import pygame as pg\nimport sys\nfrom settings import *\nfrom map import *\nfrom player import *\nfrom raycasting import *\n\nclass Game:\n    def __init__(self):\n        self.raycasting = None\n        self.player = None\n        self.map = None\n        pg.init()\n        self.screen = pg.display.set_mode(RES)\n        self.clock = pg.time.Clock()\n        self.delta_time = 1\n        self.new_game()\n\n    def new_game(self):\n        self.map = Map(self)\n        self.player = Player(self)\n        self.raycasting = RayCasting(self)\n\n    def update(self):\n        self.player.update()\n        self.raycasting.update()\n        pg.display.flip()\n        self.delta_time = self.clock.tick(FPS)\n        pg.display.set_caption(f'{self.clock.get_fps() :.1f}')\n\n    def draw(self):\n        self.screen.fill('black')\n        #self.map.draw()\n        #self.player.draw()\n\n    def check_events(self):\n        for event in pg.event.get():\n            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):\n                pg.quit()\n                sys.exit()\n\n    def run(self):\n        while True:\n            self.check_events()\n            self.update()\n            self.draw()\n\nif __name__ == '__main__':\n    game = Game()\n    game.run()
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/main.py b/main.py
+--- a/main.py	(revision 91d8843dc6a70f13d7213a58c03ed5a504172e5c)
++++ b/main.py	(date 1749160916145)
+@@ -4,12 +4,10 @@
+ from map import *
+ from player import *
+ from raycasting import *
++from object_renderer import *
+ 
+ class Game:
+     def __init__(self):
+-        self.raycasting = None
+-        self.player = None
+-        self.map = None
+         pg.init()
+         self.screen = pg.display.set_mode(RES)
+         self.clock = pg.time.Clock()
+@@ -19,6 +17,7 @@
+     def new_game(self):
+         self.map = Map(self)
+         self.player = Player(self)
++        self.object_renderer = ObjectRenderer(self)
+         self.raycasting = RayCasting(self)
+ 
+     def update(self):
+Index: settings.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import math\n\n# game settings\nRES = WIDTH, HEIGHT = 1300, 700\nHALF_WIDTH = WIDTH // 2\nHALF_HEIGHT = HEIGHT // 2\nFPS = 60\n\nPLAYER_POS = 1.5, 5 # mini_map\nPLAYER_ANGLE = 0\nPLAYER_SPEED = 0.004\nPLAYER_ROT_SPEED = 0.002\n\nFOV = math.pi / 3\nHALF_FOV = FOV / 2\nNUM_RAYS = WIDTH // 2\nHALF_NUM_RAYS = NUM_RAYS // 2\nDELTA_ANGLE = FOV / NUM_RAYS\nMAX_DEPTH = 20\n\nSCREEN_DIST = HALF_WIDTH / math.tan(HALF_FOV)\nSCALE = WIDTH // NUM_RAYS\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/settings.py b/settings.py
+--- a/settings.py	(revision 91d8843dc6a70f13d7213a58c03ed5a504172e5c)
++++ b/settings.py	(date 1749160916147)
+@@ -20,3 +20,6 @@
+ 
+ SCREEN_DIST = HALF_WIDTH / math.tan(HALF_FOV)
+ SCALE = WIDTH // NUM_RAYS
++
++TEXTURE_SIZE = 256
++HALF_TEXTURE_SIZE = TEXTURE_SIZE // 2
+Index: raycasting.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import pygame as pg\nimport math\nfrom settings import *\n\nclass RayCasting:\n    def __init__(self, game):\n        self.game = game\n\n    def ray_cast(self):\n        ox, oy = self.game.player.pos\n        x_map, y_map = self.game.player.map_pos\n\n        ray_angle = self.game.player.angle - HALF_FOV + 0.0001\n        for ray in range(NUM_RAYS):\n            sin_a = math.sin(ray_angle)\n            cos_a = math.cos(ray_angle)\n\n            # horizontal\n            y_hor, dy = (y_map + 1, 1) if sin_a > 0 else (y_map - 1e-6, -1)\n\n            depth_hor = (y_hor - oy) / sin_a\n            x_hor = ox + depth_hor * cos_a\n\n            delta_depth = dy / sin_a\n            dx = delta_depth * cos_a\n\n            for i in range(MAX_DEPTH):\n                tile_hor = int(x_hor), int(y_hor)\n                if tile_hor in self.game.map.world_map:\n                    break\n                x_hor += dx\n                y_hor += dy\n                depth_hor += delta_depth\n\n            # verticals\n            x_vert, dx = (x_map + 1, 1) if cos_a > 0 else (x_map - 1e-6, -1)\n\n            depth_vert = (x_vert - ox) / cos_a\n            y_vert = oy + depth_vert * sin_a\n\n            delta_depth = dx / cos_a\n            dy = delta_depth * sin_a\n\n            for i in range(MAX_DEPTH):\n                tile_vert = int(x_vert), int(y_vert)\n                if tile_vert in self.game.map.world_map:\n                    break\n                x_vert += dx\n                y_vert += dy\n                depth_vert += delta_depth\n\n            # depth\n            if depth_vert < depth_hor:\n                depth = depth_vert\n            else:\n                depth = depth_hor\n\n            # remove fishbowl effects\n            depth *= math.cos(self.game.player.angle - ray_angle)\n\n            # projection\n            proj_height = SCREEN_DIST / (depth + 0.0001)\n\n            # draw walls\n            color = [255 / (1 + depth ** 5 * 0.00002)] * 3\n            pg.draw.rect(self.game.screen, color,\n                         (ray * SCALE, HALF_HEIGHT - proj_height // 2, SCALE, proj_height))\n\n            ray_angle += DELTA_ANGLE\n\n    def update(self):\n        self.ray_cast()
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/raycasting.py b/raycasting.py
+--- a/raycasting.py	(revision 91d8843dc6a70f13d7213a58c03ed5a504172e5c)
++++ b/raycasting.py	(date 1749160916149)
+@@ -5,6 +5,9 @@
+ class RayCasting:
+     def __init__(self, game):
+         self.game = game
++        self.ray_casting_result = []
++        self.objects_to_render = []
++        self.textures = self.game.object_renderer.wall_textures
+ 
+     def ray_cast(self):
+         ox, oy = self.game.player.pos
+@@ -27,6 +30,7 @@
+             for i in range(MAX_DEPTH):
+                 tile_hor = int(x_hor), int(y_hor)
+                 if tile_hor in self.game.map.world_map:
++                    texture_hor = self.game.map.world_map[tile_hor]
+                     break
+                 x_hor += dx
+                 y_hor += dy
+@@ -44,6 +48,7 @@
+             for i in range(MAX_DEPTH):
+                 tile_vert = int(x_vert), int(y_vert)
+                 if tile_vert in self.game.map.world_map:
++                    texture_vert = self.game.map.world_map[tile_vert]
+                     break
+                 x_vert += dx
+                 y_vert += dy
+@@ -51,9 +56,13 @@
+ 
+             # depth
+             if depth_vert < depth_hor:
+-                depth = depth_vert
++                depth, texture = depth_vert, texture_vert
++                y_vert %= 1
++                offset = y_vert if cos_a >0 else (1- y_vert)
+             else:
+-                depth = depth_hor
++                depth, texture = depth_hor, texture_hor
++                x_hor %= 1
++                offset = (1 - x_hor) if sin_a > 0 else x_hor
+ 
+             # remove fishbowl effects
+             depth *= math.cos(self.game.player.angle - ray_angle)
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"AutoImportSettings\">\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\n  </component>\n  <component name=\"ChangeListManager\">\n    <list default=\"true\" id=\"4310e969-66a1-421e-b51d-200f378b2fd4\" name=\"Changes\" comment=\"\">\n      <change afterPath=\"$PROJECT_DIR$/.idea/Game_3d.iml\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/.idea/modules.xml\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/.idea/vcs.xml\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/main.py\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/map.py\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/object_renderer.py\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/player.py\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/raycasting.py\" afterDir=\"false\" />\n      <change afterPath=\"$PROJECT_DIR$/settings.py\" afterDir=\"false\" />\n    </list>\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\n  </component>\n  <component name=\"FileTemplateManagerImpl\">\n    <option name=\"RECENT_TEMPLATES\">\n      <list>\n        <option value=\"Python Script\" />\n      </list>\n    </option>\n  </component>\n  <component name=\"Git.Settings\">\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\n  </component>\n  <component name=\"ProjectColorInfo\"><![CDATA[{\n  \"associatedIndex\": 7\n}]]></component>\n  <component name=\"ProjectId\" id=\"2y2g0h1TklYXDzEFUwO5egpkbNb\" />\n  <component name=\"ProjectViewState\">\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\n    <option name=\"showLibraryContents\" value=\"true\" />\n  </component>\n  <component name=\"PropertiesComponent\"><![CDATA[{\n  \"keyToString\": {\n    \"ModuleVcsDetector.initialDetectionPerformed\": \"true\",\n    \"Python.main.executor\": \"Run\",\n    \"Python.map.executor\": \"Run\",\n    \"Python.settings.executor\": \"Run\",\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\n    \"RunOnceActivity.git.unshallow\": \"true\",\n    \"git-widget-placeholder\": \"main\"\n  }\n}]]></component>\n  <component name=\"SharedIndexes\">\n    <attachedChunks>\n      <set>\n        <option value=\"bundled-python-sdk-e0ed3721d81e-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.25410.159\" />\n      </set>\n    </attachedChunks>\n  </component>\n  <component name=\"TaskManager\">\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\n      <changelist id=\"4310e969-66a1-421e-b51d-200f378b2fd4\" name=\"Changes\" comment=\"\" />\n      <created>1749037860624</created>\n      <option name=\"number\" value=\"Default\" />\n      <option name=\"presentableId\" value=\"Default\" />\n      <updated>1749037860624</updated>\n    </task>\n    <servers />\n  </component>\n  <component name=\"Vcs.Log.Tabs.Properties\">\n    <option name=\"TAB_STATES\">\n      <map>\n        <entry key=\"MAIN\">\n          <value>\n            <State />\n          </value>\n        </entry>\n      </map>\n    </option>\n  </component>\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 91d8843dc6a70f13d7213a58c03ed5a504172e5c)
++++ b/.idea/workspace.xml	(date 1749160916151)
+@@ -4,18 +4,128 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="4310e969-66a1-421e-b51d-200f378b2fd4" name="Changes" comment="">
+-      <change afterPath="$PROJECT_DIR$/.idea/Game_3d.iml" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/map.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/object_renderer.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/player.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/raycasting.py" afterDir="false" />
+-      <change afterPath="$PROJECT_DIR$/settings.py" afterDir="false" />
++    <list default="true" id="4310e969-66a1-421e-b51d-200f378b2fd4" name="Changes" comment="first commit">
++      <change afterPath="$PROJECT_DIR$/resources/sound/npc_attack.wav" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sound/npc_death.wav" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sound/npc_pain.wav" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sound/player_pain.wav" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sound/shotgun.wav" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sound/theme.mp3" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/green_light/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/green_light/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/green_light/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/green_light/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/red_light/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/red_light/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/red_light/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/animated_sprites/red_light/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/attack/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/attack/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/attack/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/attack/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/attack/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/death/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/death/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/death/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/death/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/death/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/death/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/6.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/idle/7.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/pain/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/pain/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/walk/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/walk/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/caco_demon/walk/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/attack/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/attack/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/6.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/7.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/death/8.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/6.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/idle/7.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/pain/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/pain/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/walk/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/walk/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/walk/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/cyber_demon/walk/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/attack/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/attack/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSM0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSN0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSO0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSP0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSQ0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSR0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSS0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSST0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/death/POSSU0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/6.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/idle/7.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/pain/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/walk/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/walk/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/walk/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/npc/soldier/walk/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/static_sprites/candlebra.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/weapon/shotgun/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/weapon/shotgun/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/weapon/shotgun/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/weapon/shotgun/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/weapon/shotgun/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/sprites/weapon/shotgun/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/blood_screen.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/0.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/1.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/10.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/2.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/3.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/4.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/5.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/6.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/7.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/8.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/digits/9.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/game_over.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/sky.png" afterDir="false" />
++      <change afterPath="$PROJECT_DIR$/resources/textures/win.png" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/object_renderer.py" beforeDir="false" afterPath="$PROJECT_DIR$/object_renderer.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/raycasting.py" beforeDir="false" afterPath="$PROJECT_DIR$/raycasting.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/settings.py" afterDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+@@ -32,6 +142,12 @@
+   <component name="Git.Settings">
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+   </component>
++  <component name="GithubPullRequestsUISettings"><![CDATA[{
++  "selectedUrlAndAccountId": {
++    "url": "https://github.com/arekszatan/Game_3d.git",
++    "accountId": "60e153bb-0af6-4870-a6c6-86e4c7c2f468"
++  }
++}]]></component>
+   <component name="ProjectColorInfo"><![CDATA[{
+   "associatedIndex": 7
+ }]]></component>
+@@ -48,9 +164,18 @@
+     "Python.settings.executor": "Run",
+     "RunOnceActivity.ShowReadmeOnStart": "true",
+     "RunOnceActivity.git.unshallow": "true",
+-    "git-widget-placeholder": "main"
++    "git-widget-placeholder": "main",
++    "last_opened_file_path": "/Users/asza/PycharmProjects/Game_3d/resources"
+   }
+ }]]></component>
++  <component name="RecentsManager">
++    <key name="CopyFile.RECENT_KEYS">
++      <recent name="$PROJECT_DIR$/resources" />
++    </key>
++    <key name="MoveFile.RECENT_KEYS">
++      <recent name="$PROJECT_DIR$" />
++    </key>
++  </component>
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+@@ -66,6 +191,15 @@
+       <option name="presentableId" value="Default" />
+       <updated>1749037860624</updated>
+     </task>
++    <task id="LOCAL-00001" summary="first commit">
++      <option name="closed" value="true" />
++      <created>1749126360063</created>
++      <option name="number" value="00001" />
++      <option name="presentableId" value="LOCAL-00001" />
++      <option name="project" value="LOCAL" />
++      <updated>1749126360063</updated>
++    </task>
++    <option name="localTasksCounter" value="2" />
+     <servers />
+   </component>
+   <component name="Vcs.Log.Tabs.Properties">
+@@ -79,4 +213,8 @@
+       </map>
+     </option>
+   </component>
++  <component name="VcsManagerConfiguration">
++    <MESSAGE value="first commit" />
++    <option name="LAST_COMMIT_MESSAGE" value="first commit" />
++  </component>
+ </project>
+\ No newline at end of file
